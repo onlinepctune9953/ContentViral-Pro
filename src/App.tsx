@@ -18,6 +18,11 @@ import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import AuthCallbackPage from "./pages/auth/AuthCallbackPage";
+import WelcomePage from "./pages/onboarding/WelcomePage";
+import PlanSelectionPage from "./pages/onboarding/PlanSelectionPage";
+import ProductTourPage from "./pages/onboarding/ProductTourPage";
+import DashboardPage from "./pages/DashboardPage";
+import CreateContentPage from "./pages/CreateContentPage";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +40,11 @@ const App = () => (
             <Route path="/auth/register" element={<RegisterPage />} />
             <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            <Route path="/onboarding/welcome" element={<WelcomePage />} />
+            <Route path="/onboarding/plans" element={<PlanSelectionPage />} />
+            <Route path="/onboarding/tour" element={<ProductTourPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/create" element={<CreateContentPage />} />
             <Route path="/oto1" element={<OTO1Page />} />
             <Route path="/oto2" element={<OTO2Page />} />
             <Route path="/oto3" element={<OTO3Page />} />

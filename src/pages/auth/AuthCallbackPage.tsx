@@ -24,18 +24,8 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         if (data.session) {
-          // Check if this is a new user by looking at their profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('id', data.session.user.id)
-            .single();
-
-          if (profile && !profile.onboarding_completed) {
-            navigate('/onboarding/welcome');
-          } else {
-            navigate('/dashboard');
-          }
+          // For now, always navigate to dashboard since we're using existing structure
+          navigate('/dashboard');
         } else {
           navigate('/auth/login');
         }
