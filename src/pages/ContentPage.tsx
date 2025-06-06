@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AIContentGeneratorWithAPI from '@/components/content/AIContentGeneratorWithAPI';
 import ContentOptimizer from '@/components/content/ContentOptimizer';
 import ContentHistory from '@/components/content/ContentHistory';
+import ContentRepurposer from '@/components/content/ContentRepurposer';
+import ViralContentAnalyzer from '@/components/content/ViralContentAnalyzer';
 
 const ContentPage: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
@@ -22,19 +24,21 @@ const ContentPage: React.FC = () => {
             {/* Header */}
             <div className="mb-8">
               <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-                Content Library
+                Content Library & Tools
               </h1>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Manage, organize, and view your generated content
+                Manage, create, optimize, and repurpose your content for maximum viral potential
               </p>
             </div>
 
             {/* Content Tabs */}
             <Tabs defaultValue="history" className="mb-8">
-              <TabsList className="grid grid-cols-3 mb-8">
+              <TabsList className="grid grid-cols-5 mb-8">
                 <TabsTrigger value="history">Content Library</TabsTrigger>
                 <TabsTrigger value="generate">Generate New</TabsTrigger>
-                <TabsTrigger value="optimize">Optimize Content</TabsTrigger>
+                <TabsTrigger value="repurpose">Repurpose Content</TabsTrigger>
+                <TabsTrigger value="analyze">Viral Analyzer</TabsTrigger>
+                <TabsTrigger value="optimize">SEO Optimizer</TabsTrigger>
               </TabsList>
               
               <TabsContent value="history">
@@ -62,12 +66,38 @@ const ContentPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="repurpose">
+                <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                  <CardHeader>
+                    <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Content Repurposer
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ContentRepurposer darkMode={darkMode} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="analyze">
+                <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                  <CardHeader>
+                    <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Viral Content Analyzer
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ViralContentAnalyzer darkMode={darkMode} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
               
               <TabsContent value="optimize">
                 <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
                   <CardHeader>
                     <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Content Optimizer
+                      SEO Content Optimizer
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
