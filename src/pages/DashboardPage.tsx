@@ -12,93 +12,107 @@ import {
   Users, 
   DollarSign, 
   Plus,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Sparkles
+  Bell,
+  Calendar,
+  BarChart3
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
+  const navigate = useNavigate();
 
   const toggleDarkMode = () => setDarkMode(!darkMode);
 
-  // Mock data - in real app this would come from API
-  const stats = [
-    {
-      title: "Content Created",
-      value: "47",
-      change: "+12% from last month",
-      changeType: "positive" as const,
-      icon: FileText
-    },
-    {
-      title: "Total Earnings",
-      value: "$2,847",
-      change: "+23% from last month",
-      changeType: "positive" as const,
-      icon: DollarSign
-    },
-    {
-      title: "Engagement Rate",
-      value: "8.2%",
-      change: "+0.5% from last week",
-      changeType: "positive" as const,
-      icon: TrendingUp
-    },
-    {
-      title: "Audience Reached",
-      value: "24.5K",
-      change: "+18% from last month",
-      changeType: "positive" as const,
-      icon: Users
-    }
-  ];
+  // Fetch real dashboard stats
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
 
-  const recentContent = [
-    {
-      id: 1,
-      title: "5 AI Tools That Will Change Marketing Forever",
-      platform: "LinkedIn",
-      status: "published",
-      engagement: "342 likes, 89 comments",
-      createdAt: "2 hours ago"
-    },
-    {
-      id: 2,
-      title: "The Future of Content Creation with AI",
-      platform: "Twitter",
-      status: "processing",
-      engagement: "Generating...",
-      createdAt: "4 hours ago"
-    },
-    {
-      id: 3,
-      title: "How to 10x Your Social Media Reach",
-      platform: "Instagram",
-      status: "published",
-      engagement: "1.2K likes, 156 comments",
-      createdAt: "1 day ago"
-    }
-  ];
+      // Get content jobs count
+      const { data: contentJobs, error: contentError } = await supabase
+        .from('content_jobs')
+        .select('id, processing_status, created_at')
+        .eq('user_id', session.user.id);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'published': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'processing': return <Clock className="w-4 h-4 text-yellow-500" />;
-      case 'failed': return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default: return <Clock className="w-4 h-4 text-gray-500" />;
+      if (contentError) throw contentError;
+
+      const totalContent = contentJobs?.length || 0;
+      const completedContent = contentJobs?.filter(job => job.processing_status === 'completed').length || 0;
+      const thisMonthContent = contentJobs?.filter(job => {
+        const jobDate = new Date(job.created_at);
+        const now = new Date();
+        return jobDate.getMonth() === now.getMonth() && jobDate.getFullYear() === now.getFullYear();
+      }).length || 0;
+
+      return {
+        totalContent,
+        completedContent,
+        thisMonthContent,
+        earnings: 0, // Reset to 0
+        engagement: 0, // Reset to 0
+        clicks: 0 // Reset to 0
+      };
+    },
+  });
+
+  // Fetch recent content
+  const { data: recentContent = [] } = useQuery({
+    queryKey: ['recent-content'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+
+      const { data, error } = await supabase
+        .from('content_jobs')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const getContentTitle = (item: any) => {
+    if (item.output_content?.content) {
+      const content = item.output_content.content;
+      const firstLine = content.split('\n')[0];
+      return firstLine.replace(/^#\s*/, '').substring(0, 40) + (firstLine.length > 40 ? '...' : '');
     }
+    return 'Untitled Content';
   };
 
   const getStatusBadge = (status: string) => {
-    const variants = {
-      published: 'bg-green-100 text-green-800',
-      processing: 'bg-yellow-100 text-yellow-800',
-      failed: 'bg-red-100 text-red-800'
-    };
-    return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800';
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-100 text-red-800">Failed</Badge>;
+      default:
+        return <Badge>{status}</Badge>;
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} flex`}>
+        <Sidebar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className={`text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            Loading dashboard...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} flex`}>
@@ -106,108 +120,186 @@ const DashboardPage: React.FC = () => {
       
       <div className="flex-1 overflow-auto">
         <div className="p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-              Welcome back! 👋
-            </h1>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Here's what's happening with your content today.
-            </p>
-          </div>
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
+                  Dashboard
+                </h1>
+                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Welcome back! Here's what's happening with your content.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Bell className="h-4 w-4" />
+                  Notifications
+                </Button>
+                <Button 
+                  onClick={() => navigate('/create')}
+                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Content
+                </Button>
+              </div>
+            </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatsCard
-                key={index}
-                title={stat.title}
-                value={stat.value}
-                change={stat.change}
-                changeType={stat.changeType}
-                icon={stat.icon}
+                title="Total Content"
+                value={stats?.totalContent || 0}
+                icon={<FileText className="h-8 w-8 text-blue-600" />}
+                change={0}
                 darkMode={darkMode}
               />
-            ))}
-          </div>
+              <StatsCard
+                title="This Month"
+                value={stats?.thisMonthContent || 0}
+                icon={<Calendar className="h-8 w-8 text-green-600" />}
+                change={0}
+                darkMode={darkMode}
+              />
+              <StatsCard
+                title="Total Earnings"
+                value={`$${stats?.earnings || 0}`}
+                icon={<DollarSign className="h-8 w-8 text-yellow-600" />}
+                change={0}
+                darkMode={darkMode}
+              />
+              <StatsCard
+                title="Engagement"
+                value={`${stats?.engagement || 0}%`}
+                icon={<TrendingUp className="h-8 w-8 text-purple-600" />}
+                change={0}
+                darkMode={darkMode}
+              />
+            </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Recent Content */}
-            <div className="lg:col-span-2">
+            {/* Usage Progress and Recent Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Recent Content
-                    </CardTitle>
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create New
-                    </Button>
-                  </div>
+                  <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Usage This Month
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {recentContent.map((content) => (
-                      <div
-                        key={content.id}
-                        className={`p-4 rounded-lg border ${
-                          darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'
-                        } hover:shadow-md transition-shadow`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {content.title}
-                          </h3>
-                          {getStatusIcon(content.status)}
+                  <UsageProgress
+                    used={stats?.thisMonthContent || 0}
+                    limit={100}
+                    label="Content Generated"
+                    darkMode={darkMode}
+                  />
+                  <UsageProgress
+                    used={0}
+                    limit={10}
+                    label="Research Queries"
+                    darkMode={darkMode}
+                    className="mt-4"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Recent Content
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/content')}
+                  >
+                    View All
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {recentContent.length > 0 ? (
+                      recentContent.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <div>
+                              <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {getContentTitle(item)}
+                              </p>
+                              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {new Date(item.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          {getStatusBadge(item.processing_status)}
                         </div>
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Badge variant="outline" className="text-xs">
-                            {content.platform}
-                          </Badge>
-                          <Badge className={`text-xs ${getStatusBadge(content.status)}`}>
-                            {content.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {content.engagement}
-                          </span>
-                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {content.createdAt}
-                          </span>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          No content created yet
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => navigate('/create')}
+                        >
+                          Create Your First Content
+                        </Button>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Usage & Quick Actions */}
-            <div className="space-y-6">
-              <UsageProgress darkMode={darkMode} />
-              
-              {/* Quick Actions */}
-              <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-                <CardHeader>
-                  <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Quick Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button className="w-full justify-start bg-blue-600 hover:bg-blue-700">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Create AI Content
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    View Analytics
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Users className="w-4 h-4 mr-2" />
-                    Audience Insights
-                  </Button>
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card 
+                className={`${darkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' : 'bg-white hover:bg-gray-50'} cursor-pointer transition-colors`}
+                onClick={() => navigate('/create')}
+              >
+                <CardContent className="p-6 text-center">
+                  <Plus className={`h-12 w-12 mx-auto mb-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <h3 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Create New Content
+                  </h3>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Generate fresh content with AI
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className={`${darkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' : 'bg-white hover:bg-gray-50'} cursor-pointer transition-colors`}
+                onClick={() => navigate('/content')}
+              >
+                <CardContent className="p-6 text-center">
+                  <FileText className={`h-12 w-12 mx-auto mb-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                  <h3 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Content Library
+                  </h3>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Manage your generated content
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className={`${darkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' : 'bg-white hover:bg-gray-50'} cursor-pointer transition-colors`}>
+                <CardContent className="p-6 text-center">
+                  <BarChart3 className={`h-12 w-12 mx-auto mb-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                  <h3 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Analytics
+                  </h3>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Track your content performance
+                  </p>
                 </CardContent>
               </Card>
             </div>

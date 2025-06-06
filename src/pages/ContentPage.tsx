@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/dashboard/Sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import AIContentGenerator from '@/components/content/AIContentGenerator';
+import AIContentGeneratorWithAPI from '@/components/content/AIContentGeneratorWithAPI';
 import ContentOptimizer from '@/components/content/ContentOptimizer';
 import ContentHistory from '@/components/content/ContentHistory';
 
@@ -22,20 +22,33 @@ const ContentPage: React.FC = () => {
             {/* Header */}
             <div className="mb-8">
               <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-                AI Content Studio
+                Content Library
               </h1>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Create, optimize, and manage your content with our advanced AI tools
+                Manage, organize, and view your generated content
               </p>
             </div>
 
             {/* Content Tabs */}
-            <Tabs defaultValue="generate" className="mb-8">
+            <Tabs defaultValue="history" className="mb-8">
               <TabsList className="grid grid-cols-3 mb-8">
-                <TabsTrigger value="generate">Generate Content</TabsTrigger>
+                <TabsTrigger value="history">Content Library</TabsTrigger>
+                <TabsTrigger value="generate">Generate New</TabsTrigger>
                 <TabsTrigger value="optimize">Optimize Content</TabsTrigger>
-                <TabsTrigger value="history">Content History</TabsTrigger>
               </TabsList>
+              
+              <TabsContent value="history">
+                <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+                  <CardHeader>
+                    <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Your Content Library
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ContentHistory darkMode={darkMode} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
               
               <TabsContent value="generate">
                 <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
@@ -45,7 +58,7 @@ const ContentPage: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <AIContentGenerator darkMode={darkMode} />
+                    <AIContentGeneratorWithAPI darkMode={darkMode} />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -59,19 +72,6 @@ const ContentPage: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <ContentOptimizer darkMode={darkMode} />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="history">
-                <Card className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-                  <CardHeader>
-                    <CardTitle className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Content History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ContentHistory darkMode={darkMode} />
                   </CardContent>
                 </Card>
               </TabsContent>

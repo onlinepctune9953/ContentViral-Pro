@@ -1,8 +1,8 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 // Define form validation schema
@@ -49,6 +49,9 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
   const [generatedContent, setGeneratedContent] = useState('');
   const [progress, setProgress] = useState(0);
   const [contentQualityScore, setContentQualityScore] = useState<number | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  
+  const queryClient = useQueryClient();
 
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -102,7 +105,6 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
     { value: 'short', label: 'Short (~300 words)' },
     { value: 'medium', label: 'Medium (~600 words)' },
     { value: 'long', label: 'Long (~1200 words)' },
-    { value: 'custom', label: 'Custom Length' },
   ];
 
   // Content generation mutation
@@ -143,10 +145,16 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
       setProgress(100);
       setGeneratedContent(data.content);
       setContentQualityScore(data.qualityScore);
+      setJobId(data.jobId);
+      
+      // Refresh content history
+      queryClient.invalidateQueries({ queryKey: ['content-history'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-content'] });
       
       toast({
         title: "Content generated successfully!",
-        description: "Your content has been created.",
+        description: "Your content has been created and saved.",
       });
     },
     onError: (error) => {
@@ -164,33 +172,68 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     setGeneratedContent('');
     setProgress(0);
+    setContentQualityScore(null);
+    setJobId(null);
     generateContentMutation.mutate(values);
   };
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     if (!generatedContent) return;
     
-    navigator.clipboard.writeText(generatedContent);
-    toast({
-      title: "Copied!",
-      description: "Content copied to clipboard",
-    });
+    try {
+      await navigator.clipboard.writeText(generatedContent);
+      toast({
+        title: "Copied!",
+        description: "Content copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Failed to copy content to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   const saveContent = () => {
-    // Simulate saving content
-    toast({
-      title: "Content saved!",
-      description: "Your content has been saved to history",
-    });
+    if (jobId) {
+      toast({
+        title: "Content saved!",
+        description: "Your content is already saved in your library",
+      });
+    } else {
+      toast({
+        title: "Content not saved",
+        description: "Please generate content first",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportContent = (format: string) => {
-    // Simulate export
+    // Create a blob with the content
+    const blob = new Blob([generatedContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content.${format === 'txt' ? 'txt' : format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
     toast({
-      title: `Exporting as ${format.toUpperCase()}`,
-      description: "Your file will be downloaded shortly",
+      title: `Exported as ${format.toUpperCase()}`,
+      description: "Your file has been downloaded",
     });
+  };
+
+  const resetForm = () => {
+    setGeneratedContent('');
+    setProgress(0);
+    setContentQualityScore(null);
+    setJobId(null);
+    form.reset();
   };
 
   return (
@@ -199,7 +242,6 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Form fields remain the same as AIContentGenerator */}
               {/* Content Type */}
               <FormField
                 control={form.control}
@@ -399,7 +441,6 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
         </Form>
       ) : (
         <div className="space-y-6">
-          {/* Content Result section remains the same as AIContentGenerator */}
           {/* Content Result */}
           <div className="flex justify-between items-center">
             <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -427,25 +468,25 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Save to history</p>
+                    <p>Content is automatically saved</p>
                   </TooltipContent>
                 </Tooltip>
                 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="outline" onClick={() => exportContent('pdf')}>
+                    <Button size="sm" variant="outline" onClick={() => exportContent('txt')}>
                       <Download className="w-4 h-4 mr-1" />
                       Export
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Export as PDF</p>
+                    <p>Export as text file</p>
                   </TooltipContent>
                 </Tooltip>
                 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="outline" onClick={() => setGeneratedContent('')}>
+                    <Button size="sm" variant="outline" onClick={resetForm}>
                       <RefreshCw className="w-4 h-4 mr-1" />
                       New
                     </Button>
@@ -487,32 +528,26 @@ const AIContentGeneratorWithAPI: React.FC<AIContentGeneratorProps> = ({ darkMode
               Export Options
             </h3>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportContent('pdf')}>
-                PDF
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => exportContent('docx')}>
-                DOCX
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => exportContent('html')}>
-                HTML
+              <Button size="sm" variant="outline" onClick={() => exportContent('txt')}>
+                TXT
               </Button>
               <Button size="sm" variant="outline" onClick={() => exportContent('md')}>
                 Markdown
               </Button>
-              <Button size="sm" variant="outline" onClick={() => exportContent('txt')}>
-                Plain Text
+              <Button size="sm" variant="outline" onClick={() => exportContent('html')}>
+                HTML
               </Button>
             </div>
           </div>
           
           {/* Actions */}
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setGeneratedContent('')}>
+            <Button variant="outline" onClick={resetForm}>
               Create New Content
             </Button>
             <Button className="bg-blue-600 hover:bg-blue-700">
               <Check className="w-4 h-4 mr-1" />
-              Approve & Save
+              Content Saved
             </Button>
           </div>
         </div>

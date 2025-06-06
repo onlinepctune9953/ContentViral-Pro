@@ -24,11 +24,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 type ContentHistoryProps = {
   darkMode: boolean;
@@ -36,13 +37,11 @@ type ContentHistoryProps = {
 
 type ContentItem = {
   id: string;
-  title: string;
-  createdAt: string;
-  platform: string;
-  status: 'published' | 'draft' | 'scheduled' | 'archived';
-  contentType: string;
-  version: number;
-  score: number;
+  input_content: string;
+  output_content: any;
+  created_at: string;
+  processing_status: string;
+  platforms_generated: string[];
 };
 
 const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
@@ -50,70 +49,31 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   
-  // Mock content history data
-  const mockContentItems: ContentItem[] = [
-    {
-      id: '1',
-      title: '10 Ways AI is Transforming Content Creation',
-      createdAt: '2025-05-15',
-      platform: 'blog',
-      status: 'published',
-      contentType: 'blog-post',
-      version: 2,
-      score: 92
+  // Fetch content jobs from Supabase
+  const { data: contentItems = [], isLoading, error } = useQuery({
+    queryKey: ['content-history'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('content_jobs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
     },
-    {
-      id: '2',
-      title: 'The Future of Content Marketing in 2025',
-      createdAt: '2025-05-12',
-      platform: 'linkedin',
-      status: 'published',
-      contentType: 'article',
-      version: 1,
-      score: 87
-    },
-    {
-      id: '3',
-      title: 'How to Optimize Your Content for SEO',
-      createdAt: '2025-05-10',
-      platform: 'blog',
-      status: 'draft',
-      contentType: 'blog-post',
-      version: 3,
-      score: 78
-    },
-    {
-      id: '4',
-      title: 'Introducing Our New Product Line',
-      createdAt: '2025-05-08',
-      platform: 'twitter',
-      status: 'scheduled',
-      contentType: 'social-post',
-      version: 1,
-      score: 85
-    },
-    {
-      id: '5',
-      title: 'Content Creation Best Practices',
-      createdAt: '2025-05-05',
-      platform: 'instagram',
-      status: 'archived',
-      contentType: 'social-post',
-      version: 2,
-      score: 81
-    }
-  ];
+  });
 
   // Filter content based on search term and filters
-  const filteredContent = mockContentItems.filter(item => {
+  const filteredContent = contentItems.filter(item => {
+    const title = item.output_content?.content || 'Untitled Content';
     const matchesSearch = searchTerm === '' || 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase());
+      title.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === null || 
-      item.status === statusFilter;
+      item.processing_status === statusFilter;
     
     const matchesPlatform = platformFilter === null || 
-      item.platform === platformFilter;
+      (item.platforms_generated && item.platforms_generated.includes(platformFilter));
     
     return matchesSearch && matchesStatus && matchesPlatform;
   });
@@ -126,25 +86,43 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
     });
   };
 
-  const handleCopy = (id: string) => {
-    toast({
-      title: "Content copied",
-      description: "Content duplicated to your drafts",
-    });
+  const handleCopy = async (item: ContentItem) => {
+    const content = item.output_content?.content || '';
+    if (content) {
+      await navigator.clipboard.writeText(content);
+      toast({
+        title: "Content copied",
+        description: "Content copied to clipboard",
+      });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    toast({
-      title: "Content deleted",
-      description: "Content has been moved to trash",
-      variant: "destructive",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('content_jobs')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Content deleted",
+        description: "Content has been deleted",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete content",
+        variant: "destructive",
+      });
+    }
   };
 
   // Get platform icon
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
-      case 'blog':
+      case 'website':
         return <FileText className="w-4 h-4" />;
       case 'instagram':
         return <Instagram className="w-4 h-4" />;
@@ -160,38 +138,64 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
   // Get status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'published':
+      case 'completed':
         return (
           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 flex items-center gap-1">
             <CheckCircle className="w-3 h-3" />
-            Published
+            Completed
           </Badge>
         );
-      case 'draft':
+      case 'pending':
         return (
           <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
-            <Edit className="w-3 h-3" />
-            Draft
-          </Badge>
-        );
-      case 'scheduled':
-        return (
-          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            Scheduled
-          </Badge>
-        );
-      case 'archived':
-        return (
-          <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            Archived
+            Pending
+          </Badge>
+        );
+      case 'failed':
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            Failed
           </Badge>
         );
       default:
         return <Badge>{status}</Badge>;
     }
   };
+
+  const getContentTitle = (item: ContentItem) => {
+    if (item.output_content?.content) {
+      const content = item.output_content.content;
+      const firstLine = content.split('\n')[0];
+      return firstLine.replace(/^#\s*/, '').substring(0, 60) + (firstLine.length > 60 ? '...' : '');
+    }
+    return 'Untitled Content';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <div className={`text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Loading your content...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-10">
+        <AlertCircle className={`mx-auto h-12 w-12 ${darkMode ? 'text-red-400' : 'text-red-500'}`} />
+        <h3 className={`mt-4 text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Error loading content
+        </h3>
+        <p className={`mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Please try refreshing the page
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -220,17 +224,14 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
                 All Statuses
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setStatusFilter('published')}>
-                Published
+              <DropdownMenuItem onClick={() => setStatusFilter('completed')}>
+                Completed
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('draft')}>
-                Draft
+              <DropdownMenuItem onClick={() => setStatusFilter('pending')}>
+                Pending
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('scheduled')}>
-                Scheduled
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter('archived')}>
-                Archived
+              <DropdownMenuItem onClick={() => setStatusFilter('failed')}>
+                Failed
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -248,9 +249,9 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
                 All Platforms
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setPlatformFilter('blog')}>
+              <DropdownMenuItem onClick={() => setPlatformFilter('website')}>
                 <FileText className="h-4 w-4 mr-2" />
-                Blog
+                Website
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setPlatformFilter('linkedin')}>
                 <Linkedin className="h-4 w-4 mr-2" />
@@ -280,41 +281,26 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
               <div className="flex flex-col md:flex-row gap-4 justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-md ${
-                      item.platform === 'blog' ? 'bg-purple-100 text-purple-600' :
-                      item.platform === 'linkedin' ? 'bg-blue-100 text-blue-600' :
-                      item.platform === 'twitter' ? 'bg-sky-100 text-sky-600' :
-                      'bg-pink-100 text-pink-600'
-                    }`}>
-                      {getPlatformIcon(item.platform)}
+                    <div className={`p-1.5 rounded-md bg-blue-100 text-blue-600`}>
+                      {getPlatformIcon(item.platforms_generated?.[0] || 'website')}
                     </div>
                     <h3 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {item.title}
+                      {getContentTitle(item)}
                     </h3>
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    {getStatusBadge(item.status)}
+                    {getStatusBadge(item.processing_status)}
                     
                     <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Created: {item.createdAt}
+                      Created: {new Date(item.created_at).toLocaleDateString()}
                     </span>
                     
-                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Version: {item.version}
-                    </span>
-                    
-                    <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                      {item.contentType}
-                    </Badge>
-                    
-                    <Badge className={
-                      item.score >= 90 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                      item.score >= 80 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                    }>
-                      Score: {item.score}
-                    </Badge>
+                    {item.platforms_generated?.map((platform) => (
+                      <Badge key={platform} className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                        {platform}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
                 
@@ -322,7 +308,7 @@ const ContentHistory: React.FC<ContentHistoryProps> = ({ darkMode }) => {
                   <Button size="sm" variant="ghost" onClick={() => handleEdit(item.id)}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleCopy(item.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => handleCopy(item)}>
                     <Copy className="h-4 w-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)}>
