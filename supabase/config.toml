@@ -1,1 +1,19 @@
-project_id = "rvxggmdkolfxkbjggilo"
+
+project_id = "content-ai-platform"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+
+[functions.generate-content]
+verify_jwt = true

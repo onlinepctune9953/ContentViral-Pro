@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import React from "react"; // This import was missing
+import React from "react";
 import Index from "./pages/Index";
 import SalesPage from "./pages/SalesPage";
 import OTO1Page from "./pages/OTO1Page";
@@ -24,6 +24,7 @@ import PlanSelectionPage from "./pages/onboarding/PlanSelectionPage";
 import ProductTourPage from "./pages/onboarding/ProductTourPage";
 import DashboardPage from "./pages/DashboardPage";
 import CreateContentPage from "./pages/CreateContentPage";
+import ContentPage from "./pages/ContentPage"; // Add new import
 
 // Create a new QueryClient instance within the component
 const App = () => {
@@ -48,6 +49,7 @@ const App = () => {
               <Route path="/onboarding/tour" element={<ProductTourPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/create" element={<CreateContentPage />} />
+              <Route path="/content" element={<ContentPage />} />
               <Route path="/oto1" element={<OTO1Page />} />
               <Route path="/oto2" element={<OTO2Page />} />
               <Route path="/oto3" element={<OTO3Page />} />
